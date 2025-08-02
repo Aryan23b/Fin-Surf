@@ -29,20 +29,17 @@ Seamless Navigation: On game over, a Khel Khatam! toast message appears, and the
 
 Play Again: A "Play Again" button on the score screen lets you jump right back into a new game.
 
-🛠️ Tech Stack & Architecture
-This project showcases a modern, 100% Kotlin-based tech stack for building a simple game on Android.
+🧱 Tech Stack
 
-Language: Kotlin
+| Tech           | Description                              |
+|----------------|------------------------------------------|
+| Kotlin         | Primary language                         |
+| Jetpack Compose| Modern UI toolkit for building the UI   |
+| Material 3     | UI styling and components                |
+| Navigation     | Compose Navigation for screen transitions |
+| ViewModel + State| To manage lives, score, and game logic |
+| SharedPreferences (or DataStore)| To persist High Score locally |
 
-UI Toolkit: Jetpack Compose for building the entire game interface declaratively.
-
-Styling: Material 3 for UI components and modern styling.
-
-Navigation: Jetpack Navigation for Compose for handling screen transitions.
-
-State Management: ViewModel and Kotlin StateFlow to manage and observe real-time game data like score, lives, and player position.
-
-Data Persistence: SharedPreferences (or DataStore) to persist the high score locally on the device.
 
 🚀 Getting Started
 To get a local copy up and running, follow these simple steps.
@@ -51,7 +48,7 @@ Clone the repository:
 
 Bash
 
-git clone https://github.com/your-username/finsurf.git
+git clone https://github.com/Aryan23b/Fin-Surf
 Open in Android Studio:
 Open the cloned project folder in the latest version of Android Studio.
 
