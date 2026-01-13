@@ -35,12 +35,12 @@ import com.example.finsurf.R
 
 
 @Composable
-fun GameOverScreen(score: String,navController: NavHostController) {
+fun GameOverScreen(score: String, difficulty: String, navController: NavHostController) {
     val context = LocalContext.current
 
-    // Get high score from SharedPreferences
+    // Get high score from SharedPreferences for the specific difficulty
     val prefs = context.getSharedPreferences("gameData", Context.MODE_PRIVATE)
-    val highScore = prefs.getInt("highscore", 0)
+    val highScore = prefs.getInt("highscore_$difficulty", 0)
 
     // Main container with background
     Box(
@@ -107,7 +107,7 @@ fun GameOverScreen(score: String,navController: NavHostController) {
                     // Play Again Button
                     PlayAgainButton(
                         onClick = {
-                            navController.navigate("game")
+                            navController.navigate("difficulty_selection")
                         }
                     )
                 }
@@ -154,7 +154,7 @@ fun ScoreDisplay(currentScore: String, highScore: Int) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF4A4A00) // Subtle yellow tint
+                containerColor = Color(0xFF4A4A00)
             )
         ) {
             Column(
@@ -166,14 +166,14 @@ fun ScoreDisplay(currentScore: String, highScore: Int) {
                 Text(
                     text = "High Score",
                     fontSize = 16.sp,
-                    color = Color(0xFFFFD700), // Gold color
+                    color = Color(0xFFFFD700),
                     fontWeight = FontWeight.Medium
                 )
                 Text(
                     text = highScore.toString(),
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFFD700) // Gold color
+                    color = Color(0xFFFFD700)
                 )
             }
         }
@@ -188,7 +188,7 @@ fun PlayAgainButton(onClick: () -> Unit) {
             .fillMaxWidth()
             .height(56.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF4CAF50) // Green color
+            containerColor = Color(0xFF4CAF50)
         ),
         shape = RoundedCornerShape(8.dp)
     ) {
@@ -200,5 +200,3 @@ fun PlayAgainButton(onClick: () -> Unit) {
         )
     }
 }
-
-
