@@ -1,24 +1,25 @@
 package com.example.finsurf.view
 
 
-import android.app.Activity
 import android.content.Context
-import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.*
-import com.example.finsurf.R
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -26,50 +27,74 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.example.finsurf.R
 import kotlinx.coroutines.delay
-import kotlin.math.floor
 import kotlin.random.Random
 
-// Game state data class
+// Data class for difficulty
+data class Difficulty(val name: String, val gravity: Float, val lift: Float, val obstacleSpeedMultiplier: Float)
+
+// Game state
 data class GameState(
     val fishX: Float = 10f,
     val fishY: Float = 550f,
-    val fishSpeed: Float = 22f,
+    val fishVelocity: Float = 0f,
+    val difficulty: Difficulty,
     val yellowX: Float = 0f,
     val yellowY: Float = 0f,
-    val yellowSpeed: Float = 16f,
+    val yellowSpeed: Float,
     val greenX: Float = 0f,
     val greenY: Float = 0f,
-    val greenSpeed: Float = 26f,
+    val greenSpeed: Float,
     val redX: Float = 0f,
     val redY: Float = 0f,
-    val redSpeed: Float = 20f,
+    val redSpeed: Float,
     val score: Int = 0,
     val lifeCounter: Int = 3,
-    val isTouch: Boolean = false,
     val isGameOver: Boolean = false,
     val canvasWidth: Float = 0f,
     val canvasHeight: Float = 0f,
     val initialized: Boolean = false
 )
 
+fun getDifficultySettings(difficulty: String): Difficulty {
+    return when (difficulty.lowercase()) {
+        "easy" -> Difficulty(name = "easy", gravity = 1.2f, lift = -25f, obstacleSpeedMultiplier = 0.8f)
+        "medium" -> Difficulty(name = "medium", gravity = 1.5f, lift = -28f, obstacleSpeedMultiplier = 1.0f)
+        "hard" -> Difficulty(name = "hard", gravity = 1.8f, lift = -32f, obstacleSpeedMultiplier = 1.2f)
+        else -> Difficulty(name = "medium", gravity = 1.5f, lift = -28f, obstacleSpeedMultiplier = 1.0f) // Default to medium
+    }
+}
+
 @Composable
-fun FlyingFishGame(navController: NavHostController) {
+fun FlyingFishGame(navController: NavHostController, difficulty: String) {
     val context = LocalContext.current
     val density = LocalDensity.current
 
-    var gameState by remember { mutableStateOf(GameState()) }
+    val difficultySettings = getDifficultySettings(difficulty)
+
+    var gameState by remember { mutableStateOf(GameState(
+        difficulty = difficultySettings,
+        yellowSpeed = 16f * difficultySettings.obstacleSpeedMultiplier,
+        greenSpeed = 26f * difficultySettings.obstacleSpeedMultiplier,
+        redSpeed = 20f * difficultySettings.obstacleSpeedMultiplier
+    )) }
 
     // Game loop
     LaunchedEffect(gameState.isGameOver) {
         if (!gameState.isGameOver) {
+            var lastFrameTime = System.nanoTime()
             while (true) {
-                delay(50) // ~20 FPS
-                gameState = updateGameState(gameState, context,navController)
+                val currentFrameTime = System.nanoTime()
+                val deltaTime = (currentFrameTime - lastFrameTime) / 1_000_000_000.0f
+                lastFrameTime = currentFrameTime
+
+                delay(16)
+                gameState = updateGameState(gameState, context, navController, deltaTime)
             }
         }
     }
@@ -79,12 +104,9 @@ fun FlyingFishGame(navController: NavHostController) {
             .fillMaxSize()
             .pointerInput(Unit) {
                 detectTapGestures(
-                    onTap = {
+                    onPress = {
                         if (!gameState.isGameOver) {
-                            gameState = gameState.copy(
-                                isTouch = true,
-                                fishSpeed = -22f
-                            )
+                            gameState = gameState.copy(fishVelocity = gameState.difficulty.lift)
                         }
                     }
                 )
@@ -110,6 +132,7 @@ fun FlyingFishGame(navController: NavHostController) {
                 gameState = gameState.copy(
                     canvasWidth = canvasWidth,
                     canvasHeight = canvasHeight,
+                    fishY = canvasHeight / 2,
                     yellowX = canvasWidth + 21f,
                     greenX = canvasWidth + 21f,
                     redX = canvasWidth + 21f,
@@ -121,25 +144,30 @@ fun FlyingFishGame(navController: NavHostController) {
             drawBalls(gameState)
         }
 
-        // Fish (positioned absolutely)
-        Image(
-            painter = painterResource(
-                id = if (gameState.isTouch) R.drawable.fish2 else R.drawable.fish1
-            ),
-            contentDescription = "Fish",
-            modifier = Modifier
-                .size(
-                    width = with(density) { (gameState.canvasWidth / 7).toDp() },
-                    height = with(density) { (gameState.canvasHeight / 12).toDp() }
-                )
-                .offset(
-                    x = with(density) { gameState.fishX.toDp() },
-                    y = with(density) { gameState.fishY.toDp() }
-                )
-        )
+        if (gameState.initialized) {
+            Image(
+                painter = painterResource(
+                    id = if (gameState.fishVelocity < 0) R.drawable.fish2 else R.drawable.fish1
+                ),
+                contentDescription = "Fish",
+                modifier = Modifier
+                    .size(
+                        width = with(density) { (gameState.canvasWidth / 8).toDp() },
+                        height = with(density) { (gameState.canvasHeight / 14).toDp() }
+                    )
+                    .offset(
+                        x = with(density) { gameState.fishX.toDp() },
+                        y = with(density) { gameState.fishY.toDp() }
+                    )
+            )
+        }
 
         // UI Overlay
         GameUI(gameState = gameState)
+
+        // Game Over Screen
+        if (gameState.isGameOver) {
+        }
     }
 }
 
@@ -186,6 +214,8 @@ fun GameUI(gameState: GameState) {
 }
 
 fun DrawScope.drawBalls(gameState: GameState) {
+    if (!gameState.initialized) return
+
     val ballRadius = size.width * 0.03f
 
     // Yellow ball
@@ -210,20 +240,28 @@ fun DrawScope.drawBalls(gameState: GameState) {
     )
 }
 
-fun updateGameState(currentState: GameState, context: Context ,navController: NavHostController): GameState {
+fun updateGameState(currentState: GameState, context: Context, navController: NavHostController, deltaTime: Float): GameState {
     if (currentState.isGameOver || !currentState.initialized) return currentState
 
-    val fishWidth = currentState.canvasWidth / 7
-    val fishHeight = currentState.canvasHeight / 12
-    val minFishY = fishHeight
-    val maxFishY = currentState.canvasHeight - fishHeight * 3
+    val fishWidth = currentState.canvasWidth / 8
+    val fishHeight = currentState.canvasHeight / 14
+    val minFishY = 20f
+    val maxFishY = currentState.canvasHeight - fishHeight-20f
 
-    // Update fish position
-    var newFishY = currentState.fishY + currentState.fishSpeed
-    var newFishSpeed = currentState.fishSpeed + 2
+    // Update fish position with gravity
+    var newVelocity = currentState.fishVelocity + currentState.difficulty.gravity
+    var newFishY = currentState.fishY + newVelocity
 
-    if (newFishY < minFishY) newFishY = minFishY
-    if (newFishY > maxFishY) newFishY = maxFishY
+    // Clamp fish position within screen bounds
+    if (newFishY < minFishY) {
+        newFishY = minFishY
+        newVelocity = 0f // Stop velocity at the ceiling
+    }
+    if (newFishY > maxFishY) {
+        newFishY = maxFishY
+        newVelocity = 0f // Stop velocity at the floor
+    }
+
 
     // Update balls
     var newYellowX = currentState.yellowX - currentState.yellowSpeed
@@ -237,14 +275,16 @@ fun updateGameState(currentState: GameState, context: Context ,navController: Na
     var newLifeCounter = currentState.lifeCounter
     var newIsGameOver = currentState.isGameOver
 
+    val ballRespawnAreaY = fishHeight
+
     // Yellow ball logic
     if (hitBallCheck(currentState.fishX, newFishY, fishWidth, fishHeight, newYellowX, newYellowY)) {
         newScore += 10
         newYellowX = -100f
     }
-    if (newYellowX < 0) {
-        newYellowX = currentState.canvasWidth + 21f
-        newYellowY = minFishY + floor(Random.nextFloat() * (maxFishY - minFishY))
+    if (newYellowX < -fishWidth) { // Check if fully off-screen
+        newYellowX = currentState.canvasWidth + Random.nextFloat() * 200f
+        newYellowY = ballRespawnAreaY + Random.nextFloat() * (maxFishY - ballRespawnAreaY * 2)
     }
 
     // Green ball logic
@@ -252,9 +292,9 @@ fun updateGameState(currentState: GameState, context: Context ,navController: Na
         newScore += 25
         newGreenX = -120f
     }
-    if (newGreenX < 0) {
-        newGreenX = currentState.canvasWidth + 21f
-        newGreenY = minFishY + floor(Random.nextFloat() * (maxFishY - minFishY))
+    if (newGreenX < -fishWidth) { // Check if fully off-screen
+        newGreenX = currentState.canvasWidth + Random.nextFloat() * 200f
+        newGreenY = ballRespawnAreaY + Random.nextFloat() * (maxFishY - ballRespawnAreaY * 2)
     }
 
     // Red ball logic
@@ -263,30 +303,30 @@ fun updateGameState(currentState: GameState, context: Context ,navController: Na
         newScore -= 20
         newLifeCounter--
 
-        if (newLifeCounter == 0 && !newIsGameOver) {
+        if (newLifeCounter <= 0 && !newIsGameOver) {
             newIsGameOver = true
 
             // Save high score
             val prefs = context.getSharedPreferences("gameData", Context.MODE_PRIVATE)
-            val highScore = prefs.getInt("highscore", 0)
+            val highScore = prefs.getInt("highscore_${currentState.difficulty.name}", 0)
 
-            if (newScore > highScore) {
-                val editor = prefs.edit()
-                editor.putInt("highscore", newScore)
-                editor.apply()
+            val finalScore = if (newScore < 0) 0 else newScore
+
+            if (finalScore > highScore) {
+                prefs.edit().putInt("highscore_${currentState.difficulty.name}", finalScore).apply()
             }
-            Toast.makeText(context, "Khel khatam", Toast.LENGTH_SHORT).show()
-            navController.navigate("game_over/${newScore}")
+            Toast.makeText(context, "Game Over", Toast.LENGTH_SHORT).show()
+            navController.navigate("game_over/${finalScore}/${currentState.difficulty.name}")
         }
     }
-    if (newRedX < 0) {
-        newRedX = currentState.canvasWidth + 21f
-        newRedY = minFishY + floor(Random.nextFloat() * (maxFishY - minFishY))
+    if (newRedX < -fishWidth) { // Check if fully off-screen
+        newRedX = currentState.canvasWidth + Random.nextFloat() * 300f
+        newRedY = ballRespawnAreaY + Random.nextFloat() * (maxFishY - ballRespawnAreaY * 2)
     }
 
     return currentState.copy(
         fishY = newFishY,
-        fishSpeed = newFishSpeed,
+        fishVelocity = newVelocity,
         yellowX = newYellowX,
         yellowY = newYellowY,
         greenX = newGreenX,
@@ -295,16 +335,22 @@ fun updateGameState(currentState: GameState, context: Context ,navController: Na
         redY = newRedY,
         score = newScore,
         lifeCounter = newLifeCounter,
-        isGameOver = newIsGameOver,
-        isTouch = false
+        isGameOver = newIsGameOver
     )
 }
 
 fun hitBallCheck(fishX: Float, fishY: Float, fishWidth: Float, fishHeight: Float, ballX: Float, ballY: Float): Boolean {
-    return fishX < ballX && fishY < ballY && (fishX + fishWidth) > ballX && (fishY + fishHeight) > ballY
+    // collision detection
+    val fishRight = fishX + fishWidth
+    val fishBottom = fishY + fishHeight
+    // A simplified radius for the ball for collision checking
+    val ballRadius = fishWidth * 0.4f
+
+    return fishX < ballX + ballRadius && fishRight > ballX - ballRadius &&
+            fishY < ballY + ballRadius && fishBottom > ballY - ballRadius
 }
 
 @Composable
-fun GameScreen(navController: NavHostController) {
-    FlyingFishGame(navController)
+fun GameScreen(navController: NavHostController, difficulty: String) {
+    FlyingFishGame(navController, difficulty)
 }
